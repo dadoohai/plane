@@ -14,7 +14,7 @@ from django.conf import settings
 # Module imports
 from plane.db.models import FileAsset, Page, Issue
 from plane.utils.exception_logger import log_exception
-from plane.settings.storage import S3Storage
+from plane.settings.storage import get_storage
 from celery import shared_task
 from plane.utils.url import normalize_url_path
 

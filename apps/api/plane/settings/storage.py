@@ -5,6 +5,7 @@
 # Python imports
 import os
 import uuid
+from pathlib import Path
 
 # Third party imports
 import boto3
@@ -14,9 +15,32 @@ from urllib.parse import quote
 # Module imports
 from plane.utils.exception_logger import log_exception
 from storages.backends.s3boto3 import S3Boto3Storage
+from django.core.files.storage import FileSystemStorage
 
 
-class S3Storage(S3Boto3Storage):
+class BaseStorageProvider:
+    backend = "base"
+
+    def generate_presigned_post(self, object_name, file_type, file_size, expiration=None):
+        raise NotImplementedError
+
+    def generate_presigned_url(self, object_name, expiration=None, http_method="GET", disposition="inline", filename=None):
+        raise NotImplementedError
+
+    def get_object_metadata(self, object_name):
+        raise NotImplementedError
+
+    def copy_object(self, object_name, new_object_name):
+        raise NotImplementedError
+
+    def upload_file(self, file_obj, object_name: str, content_type: str = None, extra_args: dict = {}):
+        raise NotImplementedError
+
+    def delete_files(self, object_names):
+        raise NotImplementedError
+
+
+class S3Storage(BaseStorageProvider, S3Boto3Storage):
     def url(self, name, parameters=None, expire=None, http_method=None):
         return name
 
@@ -203,3 +227,88 @@ class S3Storage(S3Boto3Storage):
         except ClientError as e:
             log_exception(e)
             return False
+
+
+class LocalFileStorage(BaseStorageProvider):
+    backend = "local"
+
+    def __init__(self, request=None):
+        self.request = request
+        self.base_dir = Path(os.environ.get("LOCAL_FILE_STORAGE_ROOT", "/tmp/plane-cde-storage")).resolve()
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.fs = FileSystemStorage(location=str(self.base_dir), base_url="/local-file-storage/")
+
+    def _full_path(self, object_name):
+        return self.base_dir / str(object_name)
+
+    def generate_presigned_post(self, object_name, file_type, file_size, expiration=None):
+        return {
+            "backend": self.backend,
+            "method": "server-upload",
+            "url": None,
+            "fields": {
+                "key": object_name,
+                "Content-Type": file_type,
+                "Content-Length": file_size,
+            },
+        }
+
+    def generate_presigned_url(self, object_name, expiration=None, http_method="GET", disposition="inline", filename=None):
+        return str(object_name)
+
+    def get_object_metadata(self, object_name):
+        path = self._full_path(object_name)
+        if not path.exists():
+            return None
+        stat = path.stat()
+        return {
+            "ContentType": None,
+            "ContentLength": stat.st_size,
+            "LastModified": None,
+            "ETag": None,
+            "Metadata": {"backend": self.backend},
+        }
+
+    def copy_object(self, object_name, new_object_name):
+        src = self._full_path(object_name)
+        dst = self._full_path(new_object_name)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes(src.read_bytes())
+        return True
+
+    def upload_file(self, file_obj, object_name: str, content_type: str = None, extra_args: dict = {}):
+        dst = self._full_path(object_name)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        with dst.open("wb") as f:
+            while True:
+                chunk = file_obj.read(1024 * 1024)
+                if not chunk:
+                    break
+                f.write(chunk)
+        return True
+
+    def delete_files(self, object_names):
+        for object_name in object_names:
+            path = self._full_path(object_name)
+            if path.exists():
+                path.unlink()
+        return True
+
+
+def storage_backend_name():
+    explicit = os.environ.get("FILE_STORAGE_PROVIDER", "").strip().lower()
+    if explicit in {"local", "filesystem", "file"}:
+        return "local"
+    if explicit in {"s3", "minio"}:
+        return "s3"
+
+    use_minio = os.environ.get("USE_MINIO") == "1"
+    has_s3 = bool(os.environ.get("AWS_S3_BUCKET_NAME") and (os.environ.get("AWS_S3_ENDPOINT_URL") or os.environ.get("AWS_REGION")))
+    return "s3" if (use_minio or has_s3) else "local"
+
+
+def get_storage(request=None, is_server=False):
+    backend = storage_backend_name()
+    if backend == "local":
+        return LocalFileStorage(request=request)
+    return S3Storage(request=request)

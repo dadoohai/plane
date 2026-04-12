@@ -7,7 +7,7 @@ from celery import shared_task
 
 # Module imports
 from plane.db.models import FileAsset
-from plane.settings.storage import S3Storage
+from plane.settings.storage import get_storage
 from plane.utils.exception_logger import log_exception
 
 

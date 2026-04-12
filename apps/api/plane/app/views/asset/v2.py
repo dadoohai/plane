@@ -19,7 +19,7 @@ from rest_framework.permissions import AllowAny
 # Module imports
 from ..base import BaseAPIView
 from plane.db.models import FileAsset, Workspace, Project, User
-from plane.settings.storage import S3Storage
+from plane.settings.storage import get_storage
 from plane.app.permissions import allow_permission, ROLE
 from plane.utils.cache import invalidate_cache_directly
 from plane.bgtasks.storage_metadata_task import get_asset_object_metadata

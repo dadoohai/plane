@@ -17,7 +17,7 @@ from rest_framework.response import Response
 
 from plane.bgtasks.storage_metadata_task import get_asset_object_metadata
 from plane.db.models import DeployBoard, FileAsset
-from plane.settings.storage import S3Storage
+from plane.settings.storage import get_storage
 
 # Module imports
 from .base import BaseAPIView

@@ -24,7 +24,7 @@ from plane.bgtasks.user_activation_email_task import user_activation_email
 # Module imports
 from plane.db.models import FileAsset, Profile, User, WorkspaceMemberInvite
 from plane.license.utils.instance_value import get_configuration_value
-from plane.settings.storage import S3Storage
+from plane.settings.storage import get_storage
 from plane.utils.exception_logger import log_exception
 from plane.utils.host import base_host
 from plane.utils.ip_address import get_client_ip

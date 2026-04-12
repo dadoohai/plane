@@ -5,7 +5,7 @@
 import os
 from unittest.mock import Mock, patch
 import pytest
-from plane.settings.storage import S3Storage
+from plane.settings.storage import S3Storage, LocalFileStorage, get_storage, storage_backend_name
 
 
 @pytest.mark.unit
@@ -204,3 +204,23 @@ class TestS3StorageSignedURLExpiration:
         mock_s3_client.generate_presigned_url.assert_called_once()
         call_kwargs = mock_s3_client.generate_presigned_url.call_args[1]
         assert call_kwargs["ExpiresIn"] == 120
+
+
+@pytest.mark.unit
+class TestStorageBackendSelection:
+    @patch.dict(os.environ, {"FILE_STORAGE_PROVIDER": "local"}, clear=True)
+    def test_explicit_local_backend(self):
+        assert storage_backend_name() == "local"
+        assert isinstance(get_storage(), LocalFileStorage)
+
+    @patch.dict(os.environ, {"USE_MINIO": "1", "AWS_S3_BUCKET_NAME": "uploads", "AWS_S3_ENDPOINT_URL": "http://minio:9000"}, clear=True)
+    @patch("plane.settings.storage.boto3")
+    def test_minio_prefers_s3_backend(self, mock_boto3):
+        mock_boto3.client.return_value = Mock()
+        assert storage_backend_name() == "s3"
+        assert isinstance(get_storage(), S3Storage)
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_no_s3_config_falls_back_to_local(self):
+        assert storage_backend_name() == "local"
+        assert isinstance(get_storage(), LocalFileStorage)

@@ -16,7 +16,7 @@ from drf_spectacular.utils import OpenApiExample, OpenApiRequest
 
 # Module Imports
 from plane.bgtasks.storage_metadata_task import get_asset_object_metadata
-from plane.settings.storage import S3Storage
+from plane.settings.storage import get_storage
 from plane.db.models import FileAsset, User, Workspace
 from plane.api.views.base import BaseAPIView
 from plane.api.serializers import (

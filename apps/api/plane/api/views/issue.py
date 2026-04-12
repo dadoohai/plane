@@ -72,7 +72,7 @@ from plane.db.models import (
     CycleIssue,
     Workspace,
 )
-from plane.settings.storage import S3Storage
+from plane.settings.storage import get_storage
 from plane.bgtasks.storage_metadata_task import get_asset_object_metadata
 from .base import BaseAPIView
 from plane.utils.host import base_host
