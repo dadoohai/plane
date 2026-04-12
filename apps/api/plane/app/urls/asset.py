@@ -20,10 +20,16 @@ from plane.app.views import (
     DuplicateAssetEndpoint,
     WorkspaceAssetDownloadEndpoint,
     ProjectAssetDownloadEndpoint,
+    LocalFileUploadEndpoint,
 )
 
 
 urlpatterns = [
+    path(
+        "assets/v2/local-upload/",
+        LocalFileUploadEndpoint.as_view(),
+        name="local-file-upload",
+    ),
     path(
         "workspaces/<str:slug>/file-assets/",
         FileAssetEndpoint.as_view(),

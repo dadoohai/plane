@@ -438,6 +438,12 @@ class GenericAssetEndpoint(BaseAPIView):
 
             # Generate presigned URL for GET
             storage = S3Storage(request=request, is_server=True)
+            local_response = storage.build_download_response(
+                object_name=asset.asset.name,
+                filename=asset.attributes.get("name")
+            )
+            if local_response:
+                return local_response
             presigned_url = storage.generate_presigned_url(
                 object_name=asset.asset.name, filename=asset.attributes.get("name")
             )

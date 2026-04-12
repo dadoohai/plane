@@ -26,6 +26,25 @@ from plane.bgtasks.storage_metadata_task import get_asset_object_metadata
 from plane.throttles.asset import AssetRateThrottle
 
 
+class LocalFileUploadEndpoint(BaseAPIView):
+    """Authenticated local-file upload endpoint used when S3/MinIO is unavailable."""
+
+    def post(self, request):
+        storage = get_storage(request=request)
+        if getattr(storage, "backend", None) != "local":
+            return Response({"error": "Local file upload backend is not active."}, status=status.HTTP_400_BAD_REQUEST)
+
+        file_obj = request.FILES.get("file")
+        object_name = request.data.get("key")
+        content_type = request.data.get("Content-Type") or getattr(file_obj, "content_type", None)
+
+        if not file_obj or not object_name:
+            return Response({"error": "file and key are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        storage.upload_file(file_obj=file_obj, object_name=object_name, content_type=content_type)
+        return Response({"uploaded": True, "key": object_name}, status=status.HTTP_200_OK)
+
+
 class UserAssetsV2Endpoint(BaseAPIView):
     """This endpoint is used to upload user profile images."""
 
@@ -420,6 +439,13 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
         # Get the presigned URL
         storage = S3Storage(request=request)
         # Generate a presigned URL to share an S3 object
+        local_response = storage.build_download_response(
+            object_name=asset.asset.name,
+            disposition="attachment",
+            filename=asset.attributes.get("name"),
+        )
+        if local_response:
+            return local_response
         signed_url = storage.generate_presigned_url(
             object_name=asset.asset.name,
             disposition="attachment",
@@ -460,6 +486,9 @@ class StaticFileAssetEndpoint(BaseAPIView):
         # Get the presigned URL
         storage = S3Storage(request=request)
         # Generate a presigned URL to share an S3 object
+        local_response = storage.build_download_response(object_name=asset.asset.name)
+        if local_response:
+            return local_response
         signed_url = storage.generate_presigned_url(object_name=asset.asset.name)
         # Redirect to the signed URL
         return HttpResponseRedirect(signed_url)
@@ -618,6 +647,13 @@ class ProjectAssetEndpoint(BaseAPIView):
         # Get the presigned URL
         storage = S3Storage(request=request)
         # Generate a presigned URL to share an S3 object
+        local_response = storage.build_download_response(
+            object_name=asset.asset.name,
+            disposition="attachment",
+            filename=asset.attributes.get("name"),
+        )
+        if local_response:
+            return local_response
         signed_url = storage.generate_presigned_url(
             object_name=asset.asset.name,
             disposition="attachment",

@@ -177,6 +177,13 @@ class IssueAttachmentV2Endpoint(BaseAPIView):
                 )
 
             storage = S3Storage(request=request)
+            local_response = storage.build_download_response(
+                object_name=asset.asset.name,
+                disposition="attachment",
+                filename=asset.attributes.get("name"),
+            )
+            if local_response:
+                return local_response
             presigned_url = storage.generate_presigned_url(
                 object_name=asset.asset.name,
                 disposition="attachment",

@@ -16,10 +16,14 @@ from urllib.parse import quote
 from plane.utils.exception_logger import log_exception
 from storages.backends.s3boto3 import S3Boto3Storage
 from django.core.files.storage import FileSystemStorage
+from django.http import FileResponse
 
 
 class BaseStorageProvider:
     backend = "base"
+
+    def build_download_response(self, object_name, filename=None, disposition="inline"):
+        return None
 
     def generate_presigned_post(self, object_name, file_type, file_size, expiration=None):
         raise NotImplementedError
@@ -242,10 +246,13 @@ class LocalFileStorage(BaseStorageProvider):
         return self.base_dir / str(object_name)
 
     def generate_presigned_post(self, object_name, file_type, file_size, expiration=None):
+        upload_url = "/api/assets/v2/local-upload/"
+        if self.request:
+            upload_url = self.request.build_absolute_uri(upload_url)
         return {
             "backend": self.backend,
             "method": "server-upload",
-            "url": None,
+            "url": upload_url,
             "fields": {
                 "key": object_name,
                 "Content-Type": file_type,
@@ -255,6 +262,12 @@ class LocalFileStorage(BaseStorageProvider):
 
     def generate_presigned_url(self, object_name, expiration=None, http_method="GET", disposition="inline", filename=None):
         return str(object_name)
+
+    def build_download_response(self, object_name, filename=None, disposition="inline"):
+        path = self._full_path(object_name)
+        if not path.exists():
+            return None
+        return FileResponse(path.open("rb"), as_attachment=(disposition == "attachment"), filename=filename)
 
     def get_object_metadata(self, object_name):
         path = self._full_path(object_name)
