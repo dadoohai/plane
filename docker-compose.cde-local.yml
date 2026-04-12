@@ -1,0 +1,18 @@
+services:
+  plane-redis:
+    ports:
+      - "6380:6379"
+  plane-mq:
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+  plane-minio:
+    ports:
+      - "9001:9000"
+      - "9091:9090"
+  plane-db:
+    ports:
+      - "5433:5432"
+  api:
+    ports:
+      - "8001:8000"
